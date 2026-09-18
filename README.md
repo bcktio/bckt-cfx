@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/bckt-sdk-header-transparent.png" alt="BCKT object storage, edge delivery and logs" width="100%">
+  <img src="docs/assets/bckt-sdk-header-1200x630-transparent.png" alt="BCKT object storage, edge delivery and logs" width="100%">
 </p>
 
 # BCKT for FiveM & RedM
