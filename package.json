@@ -1,0 +1,15 @@
+{
+  "name": "bckt-cfx",
+  "version": "0.1.1",
+  "private": true,
+  "description": "BCKT Lua SDK for FiveM and RedM",
+  "scripts": {
+    "test": "fengari tests/run.lua && node --test tests/nui.test.cjs",
+    "check": "node scripts/check.cjs",
+    "pack:resource": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"
+  },
+  "devDependencies": {
+    "fengari-node-cli": "0.1.1",
+    "luaparse": "0.3.1"
+  }
+}

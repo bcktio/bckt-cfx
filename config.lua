@@ -1,0 +1,23 @@
+BcktConfig = {
+    defaultFolder = '',
+    defaultStream = 'server',
+    allowedResources = {},
+    writeResources = {},
+    deleteResources = {},
+    fileResources = {},
+    requestTimeoutMs = 30000,
+    requestConcurrency = 4,
+    maxPendingRequests = 128,
+    readRetries = 2,
+    maxUploadBytes = 8 * 1024 * 1024,
+    maxCaptureBytes = 8 * 1024 * 1024,
+    captureTimeoutMs = 120000,
+    maxCaptures = 8,
+    logIntervalMs = 5000,
+    logBatchSize = 100,
+    maxLogQueue = 5000,
+    maxLogQueueBytes = 8 * 1024 * 1024,
+    maxLogEventBytes = 64000,
+    persistLogs = false,
+    tags = {}
+}
