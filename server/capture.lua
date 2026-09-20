@@ -30,6 +30,11 @@ B.register('CaptureScreenshot', 'write', function(resource, player, options)
     B.check(encoding == 'jpg' or encoding == 'png' or encoding == 'webp', 'Use jpg, png or webp')
     local quality = options.quality or 0.85
     B.check(type(quality) == 'number' and quality > 0 and quality <= 1, 'Quality must be greater than 0 and at most 1')
+    for name, limit in pairs({ maxWidth = 3840, maxHeight = 2160 }) do
+        local value = options[name]
+        B.check(value == nil or (type(value) == 'number' and value % 1 == 0 and value >= 1 and value <= limit), 'Invalid screenshot dimensions')
+        B.check(value == nil or provider == 'screencapture', 'Screenshot dimensions require screencapture')
+    end
     sequence = sequence + 1
     local id = string.format('%x-%x-%x', os.time(), sequence, math.random(0, 0x7fffffff))
     local mime = encoding == 'jpg' and 'image/jpeg' or 'image/' .. encoding
@@ -39,7 +44,7 @@ B.register('CaptureScreenshot', 'write', function(resource, player, options)
     SetTimeout(B.config.captureTimeoutMs, function()
         complete(id, B.fail('CAPTURE_TIMEOUT', 'The capture timed out. A started upload may still complete.', 0, task.state ~= 'capture'))
     end)
-    TriggerClientEvent('bckt:capture:start', player, id, { provider = provider, encoding = encoding, quality = quality, maxBytes = B.config.maxCaptureBytes })
+    TriggerClientEvent('bckt:capture:start', player, id, { provider = provider, encoding = encoding, quality = quality, maxWidth = options.maxWidth, maxHeight = options.maxHeight, maxBytes = B.config.maxCaptureBytes })
     return Citizen.Await(task.promise)
 end)
 

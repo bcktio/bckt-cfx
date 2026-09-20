@@ -2,16 +2,17 @@ const https = require('node:https');
 
 function createBinaryUploader(request = https.request) {
   const active = new Set();
-  function upload(method, destination, hex, ticketHeaders, timeout, callback) {
+  function send(method, destination, body, length, ticketHeaders, timeout, callback) {
     let finished = false;
     let req;
     let timer;
-    const finish = (status, body, headers = {}) => {
+    const finish = (status, responseBody, headers = {}) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       active.delete(cancel);
-      callback(status, body, headers);
+      if (!Buffer.isBuffer(body)) body.destroy();
+      callback(status, responseBody, headers);
     };
     const fail = (code, message, uncertain = false) => finish(0, JSON.stringify({ error: { code, message, uncertain } }));
     const cancel = () => {
@@ -24,21 +25,20 @@ function createBinaryUploader(request = https.request) {
         fail('INVALID_UPLOAD_HOST', 'Unexpected upload destination.');
         return;
       }
-      if (!['POST', 'PUT'].includes(method) || typeof hex !== 'string' || !hex.length || hex.length > 196 * 1024 * 1024 || hex.length % 2 || /[^0-9a-f]/i.test(hex)) {
+      if (!['POST', 'PUT'].includes(method) || !Number.isSafeInteger(length) || length < 1 || length > 98 * 1024 * 1024) {
         fail('INVALID_ARGUMENT', 'Invalid binary upload request.');
         return;
       }
-      const body = Buffer.from(hex, 'hex');
       const headers = {};
       for (const [name, value] of Object.entries(ticketHeaders || {})) {
         const lower = name.toLowerCase();
-        if (lower === 'content-length' && Number(value) !== body.length) {
+        if (lower === 'content-length' && Number(value) !== length) {
           fail('CONTENT_LENGTH_MISMATCH', 'The upload ticket size does not match the file bytes.');
           return;
         }
         if (['content-type', 'x-file-name', 'x-file-name-encoding'].includes(lower)) headers[lower] = String(value);
       }
-      headers['content-length'] = String(body.length);
+      headers['content-length'] = String(length);
       active.add(cancel);
       timer = setTimeout(() => {
         fail('TIMEOUT', 'The upload timed out. Its outcome may be unknown.', true);
@@ -60,12 +60,26 @@ function createBinaryUploader(request = https.request) {
         res.on('aborted', cancel);
       });
       req.on('error', cancel);
-      req.end(body);
+      if (Buffer.isBuffer(body)) req.end(body);
+      else {
+        body.on('error', cancel);
+        body.pipe(req);
+      }
     } catch {
       fail('TRANSPORT_ERROR', 'The upload request could not be completed.', Boolean(req));
       if (req) req.destroy();
     }
+    return cancel;
   }
+  function upload(method, destination, hex, ticketHeaders, timeout, callback) {
+    if (typeof hex !== 'string' || !hex.length || hex.length > 196 * 1024 * 1024 || hex.length % 2 || /[^0-9a-f]/i.test(hex)) {
+      callback(0, JSON.stringify({ error: { code: 'INVALID_ARGUMENT', message: 'Invalid binary upload request.' } }), {});
+      return;
+    }
+    const body = Buffer.from(hex, 'hex');
+    return send(method, destination, body, body.length, ticketHeaders, timeout, callback);
+  }
+  upload.stream = send;
   upload.close = () => { for (const cancel of [...active]) cancel(); };
   return upload;
 }

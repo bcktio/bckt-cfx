@@ -12,7 +12,7 @@ RegisterNetEvent('bckt:capture:start', function(id, options)
         return
     end
     local ok = pcall(function()
-        exports[provider]:requestScreenshot({ encoding = options.encoding, quality = options.quality }, function(data)
+        exports[provider]:requestScreenshot({ encoding = options.encoding, quality = options.quality, maxWidth = options.maxWidth, maxHeight = options.maxHeight }, function(data)
             if not captures[id] then return end
             if type(data) ~= 'string' or #data > options.maxBytes * 1.4 + 200 then
                 TriggerServerEvent('bckt:capture:failed', id)

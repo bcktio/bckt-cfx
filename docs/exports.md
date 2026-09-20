@@ -79,11 +79,44 @@ Messages are limited to 16000 bytes in the SDK. Events default to at most 64000 
 
 `CaptureScreenshot(playerId, options, callback)` and `CaptureScreenshotAwait(playerId, options)` are server exports. Options are `folder` (default screenshots), `private` (default true), `encoding` (jpg, png or webp; default webp) and `quality` (greater than 0 and at most 1; default 0.85).
 
-The `provider` option accepts `auto`, `screenshot-basic` or `screencapture`, and defaults to `BcktConfig.captureProvider` (`auto`). Auto selects a started screenshot-basic first, otherwise screencapture. An explicitly selected resource must be started. Both adapters support JPG, PNG, WebP and quality through `requestScreenshot`. Video and live streaming are not exposed.
+The `provider` option accepts `auto`, `screenshot-basic` or `screencapture`, and defaults to `BcktConfig.captureProvider` (`auto`). Auto selects a started screenshot-basic first, otherwise screencapture. An explicitly selected resource must be started. Both adapters support JPG, PNG, WebP and quality through `requestScreenshot`. Optional `maxWidth` (1 to 3840) and `maxHeight` (1 to 2160) require the screencapture provider; they bound the dimensions without stretching the image.
 
 Requires one of those capture resources, a connected player and both file scopes. One capture per player can be pending; at most eight globally by default. Capture lifetime defaults to 120 seconds. Success returns `data.file`, `data.url` and `data.expires_at`, verified against the server-side catalog. The server controls the filename and generates a distinct name per capture.
 
 The SDK cannot prove that an image from an untrusted game client is an authentic screenshot. Timeouts and disconnects can leave a successfully uploaded file without a completed callback. No automatic deletion is performed in that case.
+
+## Videos
+
+Video exports run on the server and follow the same callback / `Await` convention as file exports. Require a started `screencapture` build with `startVideoCapture` and `stopVideoCapture`. screenshot-basic cannot record video. Recording and upload require `files:write` and `files:read` for catalog verification and private links. The calling resource must pass `allowedResources` and `writeResources`.
+
+| Export | Arguments | Result |
+| --- | --- | --- |
+| `CaptureVideo` | `playerId, options` | Waits for recording, upload and verification; returns `file`, `url`, `expires_at`, `capture_id`, `filename`, `duration` |
+| `StartVideoCapture` | `playerId, options` | Returns `capture_id`, `player`, `state`, `active`, `started_at` as soon as recording starts |
+| `StopVideoCapture` | `captureId` | Requests a stop and upload; returns current status, not the completed file |
+| `CancelVideoCapture` | `captureId` | Cancels the operation and requests a stop; returns status |
+| `WaitVideoCapture` | `captureId` | Waits for the completed file or terminal error |
+| `GetVideoCaptureStatus` | `captureId` | Returns current status and `result` after completion |
+| `IsVideoCaptureActive` | `captureId` | Returns the same status object; read `data.active` |
+
+For example, `StartVideoCaptureAwait` returns before the video is complete, while `CaptureVideoAwait` waits for the complete operation. Status/control exports also have callback and Await variants. IDs can only be used by the resource that created them. One video per player may be pending, including during upload. Results remain available for ten minutes, subject to a bounded history of approximately 128 operations. At most 32 waiters may attach to one recording.
+
+Options:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `duration` | `30` | Integer recording duration in seconds, up to `maxVideoDurationSeconds` |
+| `maxWidth`, `maxHeight` | `1280`, `720` | Positive integer bounds, at most 3840 by 2160 |
+| `folder` | `recordings` | BCKT folder |
+| `filename` | Unique capture filename | Filename ending in `.webm`, without a path |
+| `private` | `true` | Private storage and a temporary access URL |
+| `maxBytes` | `BcktConfig.maxVideoBytes` | Per-capture upload limit; can reduce, not exceed, the configured limit |
+
+States are `recording`, `stopping`, `authorizing`, `uploading`, `verifying`, `completed`, `failed` and `cancelled`. `active` remains true until a terminal state. `started_at` is Unix time in milliseconds; returned `duration` is seconds reported by screencapture.
+
+The SDK requests a timed stop on the server as well as passing duration to screencapture. A deadline resolves stalled operations. Cancellation during upload may leave an accepted file in BCKT; the failure has `error.uncertain = true`. Uploads are never retried automatically. Cancelling an already completed operation does not delete its BCKT file. Use `DeleteFile` explicitly if needed.
+
+The installed screencapture recorder controls codecs and audio. The reviewed build produces WebM/VP9 at 30 FPS with no audio track; this adapter does not promise MP4, audio, custom FPS or live streaming. Existing external live sessions may prevent recording; configure and control those outside BCKT.
 
 ## Client image uploads
 
@@ -98,3 +131,5 @@ This helper does not request authorization from the server and does not validate
 `IsReady()` returns whether a non-empty API key was configured, not whether it is valid. `GetVersion()` returns a string. `GetStatus()` returns readiness, last transport reachability, last request timestamp, last error code and request counts. Reachability does not imply successful authentication.
 
 Local server events: `bckt:ready`, `bckt:requestFailed(details)` and `bckt:queueFull(stats)`. They never carry the API key or signed upload URL. Internal `bckt:capture:*` network events are not a public integration API.
+
+`bckt:videoFinished(ownerResource, captureId, summary)` is a local server event. The summary contains `success`, `status` and an error `code` when applicable, without file URLs or tokens. Use `WaitVideoCapture` from the owning resource to retrieve the result.

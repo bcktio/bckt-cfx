@@ -1,4 +1,4 @@
-Bckt = { config = BcktConfig, methods = {}, active = 0, pending = 0, version = '0.1.3' }
+Bckt = { config = BcktConfig, methods = {}, active = 0, pending = 0, version = '0.1.4' }
 local B = Bckt
 local key = GetConvar('bckt_api_key', '')
 local base = 'https://api.bckt.io/api/v1'

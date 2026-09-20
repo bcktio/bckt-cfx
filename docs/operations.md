@@ -68,9 +68,21 @@ npm test
 
 Development dependencies are only used for local parsing and mocked execution. Tests do not contact BCKT and do not require an API key.
 
-On Windows, `npm run pack:resource` creates `dist/bckt-cfx-0.1.3.zip` with a single `bckt` resource directory. It excludes development dependencies, Git state and test tooling. The shipped resource runs Lua, a server JavaScript upload transport and browser JavaScript without a build step or runtime npm dependencies.
+On Windows, `npm run pack:resource` creates `dist/bckt-cfx-0.1.4.zip` with a single `bckt` resource directory. It excludes development dependencies, Git state and test tooling. The shipped resource runs Lua, a server JavaScript upload transport and browser JavaScript without a build step or runtime npm dependencies.
 
 Server file uploads use the bundled Node HTTPS transport to preserve null bytes and arbitrary binary content. Lua passes the bytes as hex internally; the transport restores a Buffer and sends raw bytes with their exact Content-Length. This does not change the public exports or the API request format. Replace the entire resource when upgrading, including `server/http.js` and `fxmanifest.lua`.
+
+## Video recording
+
+Start screencapture before bckt. Use a build with the current video exports and working client-to-server recording transport. No live-stream endpoint or SFU is needed. Existing integrations still call Lua exports; `server/video.js` loads the shared binary transport internally.
+
+Video limits are separate from image uploads: `maxVideoCaptures` defaults to 2 (maximum 16), `maxVideoBytes` to 64 MiB (maximum 98 MiB), and `maxVideoDurationSeconds` to 120 (maximum 600). `videoFinishTimeoutMs` and `videoUploadTimeoutMs` default to 120000 each (maximum 300000). The overall deadline is the requested duration plus both timeouts. All values must be positive integers within those bounds.
+
+screencapture writes recordings to its own `tmp` directory. Only the returned recording, with a valid generated filename inside that directory, is read and removed. Other resource files and symlinks are rejected. Completed recordings are checked against the byte limit before an upload ticket is requested. The SDK then streams the file from disk with a fixed Content-Length and no redirect following. It does not copy the whole video through Lua or retry failed uploads.
+
+The byte limit applies to finalized videos, not to incoming chunks written by screencapture. Keep disk headroom and use screencapture's own server protections. The SDK cannot enforce a disk-write limit inside another resource. If a player disconnects, a resource crashes or screencapture never returns a final file path, incomplete files can remain in its `tmp` directory. Do not blanket-delete that directory while recordings are active. A finalized file is cleaned up even after cancellation or an upload failure; `temp_cleanup_failed` flags a failed cleanup when a result is available. A crash can also interrupt cleanup.
+
+Authorize player targets in your own server code. The example uses restricted ACE commands. No client network event in BCKT starts recordings. Resource ownership is enforced for stop, cancellation, status and waiting. Video is received from an untrusted client and is not proof of an authentic game view.
 
 ## Before using a release in production
 
@@ -83,5 +95,6 @@ Run these acceptance checks on a staging game server with a dedicated BCKT key:
 5. Upload from the phone example with ACE permission, then verify denial without permission.
 6. Disconnect during capture, stop the calling resource, revoke the key, and simulate quota and rate-limit responses.
 7. Restart with a persisted queue and verify uncertain events do not resend automatically.
+8. Record and play a WebM video, stop early, cancel during recording and upload, and check private links. Verify the temporary file disappears and an oversized recording is rejected. Restart the caller and screencapture while waiting and check that callers receive an error.
 
 These live checks cannot be replaced by the mocked tests. RedM screenshot capture remains dependent on the chosen capture resource's runtime compatibility.

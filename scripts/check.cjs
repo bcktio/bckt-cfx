@@ -17,4 +17,5 @@ function walk(dir) {
 walk('.');
 new vm.Script(fs.readFileSync('web/main.js', 'utf8'));
 new vm.Script(fs.readFileSync('server/http.js', 'utf8'));
-console.log(`Parsed ${count} Lua files and the NUI script.`);
+new vm.Script(fs.readFileSync('server/video.js', 'utf8'));
+console.log(`Parsed ${count} Lua files, server transports and the NUI script.`);

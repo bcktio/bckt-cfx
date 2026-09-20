@@ -12,7 +12,7 @@ The official Lua SDK for BCKT. Upload files, capture screenshots and send struct
 
 No framework required. Your API key stays on the server.
 
-Version 0.1.3 is a beta release. The Lua logic, server binary transport and browser upload bridge have local automated checks. Live FiveM, RedM and capture-provider acceptance tests are still required before calling this production-tested.
+Version 0.1.4 is a beta release. Server-side image uploads have been verified on FiveM. Video capture, the Lua logic and upload transports have local automated checks; video recording still needs live game testing. RedM compatibility depends on the installed capture resource.
 
 ## Five lines instead of another HTTP wrapper
 
@@ -83,7 +83,33 @@ end
 
 The SDK handles capture, authorization, direct upload and a server-side catalog check. Captures require both `files:write` and `files:read`. They default to private. Both capture resources are optional; everything else works without them.
 
-The adapter uses each resource's `requestScreenshot` export and uploads raw bytes through BCKT. `BcktConfig.captureProvider` defaults to `auto`: it uses screenshot-basic when started, otherwise screencapture. Set it to `screencapture` to prefer that resource, or pass `provider = 'screencapture'` per capture. A failed capture is not retried through another provider. This integration supports still images, not video or live streaming. RedM capture support depends on the chosen resource and must be tested in-game. A screenshot supplied by a player's client is not proof that the client is trustworthy.
+The adapter uses each resource's `requestScreenshot` export and uploads raw bytes through BCKT. `BcktConfig.captureProvider` defaults to `auto`: it uses screenshot-basic when started, otherwise screencapture. Set it to `screencapture` to prefer that resource, or pass `provider = 'screencapture'` per capture. A failed capture is not retried through another provider. With screencapture you can also set `maxWidth` and `maxHeight`. RedM capture support depends on the chosen resource and must be tested in-game. A screenshot supplied by a player's client is not proof that the client is trustworthy.
+
+## Record the moment, keep the file
+
+With a screencapture build that includes its video exports:
+
+```lua
+local result = exports['bckt']:CaptureVideoAwait(playerId, {
+    duration = 15,
+    maxWidth = 1280,
+    maxHeight = 720,
+    folder = 'reports/clips',
+    private = true
+})
+
+if result.success then
+    print('Video saved:', result.data.file.id)
+else
+    print(result.error.code, result.error.message)
+end
+```
+
+This waits for recording, upload and catalog verification. The result includes the file and an access URL. The recording is WebM and private by default. Both file scopes are required.
+
+For a recording you can stop manually, use `StartVideoCaptureAwait`, keep its `data.capture_id`, then call `StopVideoCaptureAwait` and `WaitVideoCaptureAwait`. `CancelVideoCaptureAwait` discards the recording instead of uploading it. Each capture belongs to the resource that started it.
+
+Defaults are 30 seconds, two concurrent videos, a 120-second recording limit and a 64 MiB upload limit. The SDK streams the finished temporary file to BCKT and removes that file afterwards. See the [video example](examples/video) and [export reference](docs/exports.md#videos) for controls and failure behavior. Live streaming is outside this SDK.
 
 ## Public when you want it. Private when you need it.
 

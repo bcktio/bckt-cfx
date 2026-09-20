@@ -45,6 +45,7 @@ dofile('server/core.lua')
 dofile('server/files.lua')
 dofile('server/logs.lua')
 dofile('server/capture.lua')
+dofile('server/video.lua')
 exports.bckt = { _uploadBytes = function(_, method, url, hex, headers, timeout, cb)
     local body = hex:gsub('%x%x', function(pair) return string.char(tonumber(pair, 16)) end)
     calls[#calls + 1] = { url = url, method = method, body = body, headers = headers, binary = true }
@@ -224,6 +225,50 @@ test('capture provider selection and unavailable resources', function()
     capture({}, 'screencapture')
     BcktConfig.captureProvider = 'auto'
     GetResourceState, Citizen.Await = state, await
+end)
+
+test('video exports validate options and retain the invoking resource', function()
+    local starts, savedOptions, savedBridge = 0, nil, nil
+    exports.bckt._video = function(_, action, owner, argument, options, bridge, callback)
+        assert(owner == invoking)
+        if action == 'start' then
+            starts = starts + 1
+            savedOptions, savedBridge = options, bridge
+            callback(Bckt.ok({ capture_id = 'video-id' }))
+        elseif action == 'wait' then
+            assert(argument == 'video-id')
+            callback(Bckt.ok({ url = 'verified-video-url' }))
+        else
+            callback(Bckt.ok({ state = action, active = true }))
+        end
+    end
+    for _, options in ipairs({ { duration = 0 }, { duration = 121 }, { maxBytes = 99 * 1024 * 1024 }, { maxWidth = 0 }, { filename = '../video.webm' }, { filename = 'video.mp4' }, { private = 'false' } }) do
+        assert(exposed.StartVideoCaptureAwait(1, options).error.code == 'INVALID_ARGUMENT')
+    end
+    assert(starts == 0)
+    assert(exposed.CaptureVideoAwait(1, { duration = 15 }).data.url == 'verified-video-url')
+    assert(savedOptions.duration == 15 and savedOptions.private == true and savedOptions.folder == 'recordings')
+    assert(savedOptions.maxBytes == BcktConfig.maxVideoBytes)
+    assert(exposed.StopVideoCaptureAwait('video-id').data.state == 'stop')
+    assert(exposed.CancelVideoCaptureAwait('video-id').data.state == 'cancel')
+    assert(exposed.GetVideoCaptureStatusAwait('video-id').data.state == 'status')
+    BcktConfig.writeResources = { 'different-resource' }
+    assert(exposed.StartVideoCaptureAwait(1, {}).error.code == 'RESOURCE_FORBIDDEN')
+    BcktConfig.writeResources = {}
+    local metadata = { filename = 'clip.webm', size = 256, content_type = 'video/webm', folder = 'recordings', private = true, file_key = 'video-key' }
+    local verified
+    responseHandler = function(url)
+        if url:find('/access%-url') then return 200, { success = true, url = 'private-video-url' } end
+        return 200, { success = true, files = { { id = '12345678-1234-1234-1234-123456789abc', original_name = 'clip.webm', public_key = 'video-key', size_bytes = '256', mime_type = 'video/webm', is_private = true } } }
+    end
+    savedBridge('verify', metadata, function(result) verified = result end)
+    threads[#threads]()
+    assert(verified.success and verified.data.url == 'private-video-url')
+    metadata.size = 257
+    savedBridge('verify', metadata, function(result) verified = result end)
+    threads[#threads]()
+    assert(verified.error.code == 'UPLOAD_UNVERIFIED')
+    responseHandler = nil
 end)
 
 test('discarding blocked events requires explicit confirmation', function()
