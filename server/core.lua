@@ -1,4 +1,4 @@
-Bckt = { config = BcktConfig, methods = {}, active = 0, pending = 0, version = '0.1.1' }
+Bckt = { config = BcktConfig, methods = {}, active = 0, pending = 0, version = '0.1.3' }
 local B = Bckt
 local key = GetConvar('bckt_api_key', '')
 local base = 'https://api.bckt.io/api/v1'
@@ -50,7 +50,10 @@ function B.allowed(resource, kind)
     return resource and has(B.config.allowedResources) and (not kind or has(B.config[kind .. 'Resources']))
 end
 
-local function once(method, url, body, headers)
+local byteHex = {}
+for i = 0, 255 do byteHex[string.char(i)] = string.format('%02x', i) end
+
+local function once(method, url, body, headers, binary)
     local p = promise.new()
     local finished = false
     local function finish(value)
@@ -61,8 +64,11 @@ local function once(method, url, body, headers)
     SetTimeout(B.config.requestTimeoutMs, function()
         finish(B.fail('TIMEOUT', 'The request timed out. Its outcome may be unknown.', 0, method ~= 'GET'))
     end)
-    local sent = pcall(PerformHttpRequest, url, function(code, raw, responseHeaders)
+    local function response(code, raw, responseHeaders, errorData)
         code = tonumber(code) or 0
+        if (raw == nil or raw == '') and type(errorData) == 'string' then
+            raw = errorData:match('^HTTP %d+:%s*(.*)$') or errorData
+        end
         local parsed, value = pcall(json.decode, raw or '')
         if code >= 200 and code < 300 then
             if code == 204 then finish(B.ok({}, code))
@@ -80,7 +86,15 @@ local function once(method, url, body, headers)
             end
             finish(result)
         end
-    end, method, body or '', headers, { followLocation = false })
+    end
+    local sent = pcall(function()
+        if binary then
+            local hex = body:gsub('.', byteHex)
+            exports[GetCurrentResourceName()]:_uploadBytes(method, url, hex, headers, B.config.requestTimeoutMs, response)
+        else
+            PerformHttpRequest(url, response, method, body or '', headers, { followLocation = false })
+        end
+    end)
     if not sent then finish(B.fail('TRANSPORT_ERROR', 'The HTTP request could not be started.')) end
     return Citizen.Await(p)
 end
@@ -110,7 +124,7 @@ function B.request(method, path, value, upload)
     end
     local result
     for attempt = 0, method == 'GET' and B.config.readRetries or 0 do
-        result = once(method, url, body, headers)
+        result = once(method, url, body, headers, upload ~= nil)
         if result.success or not (result.status == 0 or result.status == 429 or result.status >= 500) or attempt == B.config.readRetries then break end
         if (result.retry_after or 0) > 60 then break end
         Wait(math.min(60000, math.max(1000 * 2 ^ attempt, (result.retry_after or 0) * 1000)))

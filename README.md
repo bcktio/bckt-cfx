@@ -12,7 +12,7 @@ The official Lua SDK for BCKT. Upload files, capture screenshots and send struct
 
 No framework required. Your API key stays on the server.
 
-Version 0.1.2 is a beta release. The Lua logic and browser upload bridge have local automated checks. Live FiveM, RedM and capture-provider acceptance tests are still required before calling this production-tested.
+Version 0.1.3 is a beta release. The Lua logic, server binary transport and browser upload bridge have local automated checks. Live FiveM, RedM and capture-provider acceptance tests are still required before calling this production-tested.
 
 ## Five lines instead of another HTTP wrapper
 

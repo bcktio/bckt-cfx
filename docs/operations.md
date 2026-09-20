@@ -68,7 +68,9 @@ npm test
 
 Development dependencies are only used for local parsing and mocked execution. Tests do not contact BCKT and do not require an API key.
 
-On Windows, `npm run pack:resource` creates `dist/bckt-cfx-0.1.2.zip` with a single `bckt` resource directory. It excludes development dependencies, Git state and test tooling. The shipped resource runs Lua and prewritten browser JavaScript without a build step.
+On Windows, `npm run pack:resource` creates `dist/bckt-cfx-0.1.3.zip` with a single `bckt` resource directory. It excludes development dependencies, Git state and test tooling. The shipped resource runs Lua, a server JavaScript upload transport and browser JavaScript without a build step or runtime npm dependencies.
+
+Server file uploads use the bundled Node HTTPS transport to preserve null bytes and arbitrary binary content. Lua passes the bytes as hex internally; the transport restores a Buffer and sends raw bytes with their exact Content-Length. This does not change the public exports or the API request format. Replace the entire resource when upgrading, including `server/http.js` and `fxmanifest.lua`.
 
 ## Before using a release in production
 

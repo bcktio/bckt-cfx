@@ -16,7 +16,7 @@ json = {
         return objects[value]
     end
 }
-exports = function(name, fn) exposed[name] = fn end
+exports = setmetatable({}, { __call = function(_, name, fn) exposed[name] = fn end })
 GetConvar = function() return 'bckt_test_key' end
 GetInvokingResource = function() return invoking end
 GetCurrentResourceName = function() return 'bckt' end
@@ -45,6 +45,12 @@ dofile('server/core.lua')
 dofile('server/files.lua')
 dofile('server/logs.lua')
 dofile('server/capture.lua')
+exports.bckt = { _uploadBytes = function(_, method, url, hex, headers, timeout, cb)
+    local body = hex:gsub('%x%x', function(pair) return string.char(tonumber(pair, 16)) end)
+    calls[#calls + 1] = { url = url, method = method, body = body, headers = headers, binary = true }
+    if responseHandler then local code, value = responseHandler(url, method, body); cb(code, json.encode(value), {}); return end
+    cb(nextStatus, json.encode(nextBody), {})
+end }
 local checks = 0
 local function test(name, fn)
     local ok, err = pcall(fn)
@@ -139,6 +145,23 @@ end)
 test('folder paths are normalized consistently', function()
     assert(Bckt.uploadOptions({ filename = 'photo.png', size = 3, folder = ' photos / reports//' }).folder == 'photos/reports')
     assert(not exposed.DeleteFolderAwait(' // ', { recursive = true }).success)
+end)
+
+test('server uploads preserve all byte values and the ticket method', function()
+    local bytes = {}
+    for i = 0, 255 do bytes[#bytes + 1] = string.char(i) end
+    local body = table.concat(bytes)
+    responseHandler = function(url, method, data)
+        if url:find('/files/upload%-url') then
+            assert(json.decode(data).size == #body)
+            return 201, { success = true, method = 'PUT', upload_url = 'https://upload.bckt.io/v1/upload?token=test', headers = { ['Content-Length'] = tostring(#body) } }
+        end
+        assert(method == 'PUT' and data == body and calls[#calls].binary)
+        return 201, { success = true, url = 'https://cdn.bckt.io/test' }
+    end
+    local result = exposed.UploadFileAwait({ filename = 'test.png', content_type = 'image/png', data = body })
+    assert(result.success)
+    responseHandler = nil
 end)
 test('a capture binds the player and verifies the uploaded file', function()
     local await = Citizen.Await
