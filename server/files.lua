@@ -31,7 +31,9 @@ local function upload(_, o)
     local opts = B.uploadOptions({ filename = o.filename, folder = o.folder, content_type = o.content_type, private = o.private, size = #o.data })
     local ticket = B.request('POST', '/files/upload-url', opts)
     if not ticket.success then return ticket end
-    return B.request('POST', '', o.data, ticket.data)
+    local method = ticket.data.method or 'POST'
+    B.check(method == 'POST' or method == 'PUT', 'The upload ticket returned an unsupported method')
+    return B.request(method, '', o.data, ticket.data)
 end
 B.register('UploadFile', 'write', upload)
 B.register('UploadJson', 'write', function(resource, o)

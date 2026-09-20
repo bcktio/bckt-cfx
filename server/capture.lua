@@ -12,9 +12,14 @@ end
 B.register('CaptureScreenshot', 'write', function(resource, player, options)
     player = tonumber(player)
     B.check(player and player > 0 and GetPlayerName(player), 'Player is not connected')
-    if GetResourceState('screenshot-basic') ~= 'started' then return B.fail('SCREENSHOT_UNAVAILABLE', 'Start screenshot-basic to capture screenshots.') end
     options = options or {}
     B.check(type(options) == 'table', 'Expected capture options')
+    local provider = options.provider or B.config.captureProvider or 'auto'
+    B.check(provider == 'auto' or provider == 'screenshot-basic' or provider == 'screencapture', 'Use auto, screenshot-basic or screencapture as the capture provider')
+    if provider == 'auto' then
+        provider = GetResourceState('screenshot-basic') == 'started' and 'screenshot-basic' or 'screencapture'
+    end
+    if GetResourceState(provider) ~= 'started' then return B.fail('SCREENSHOT_UNAVAILABLE', 'Start screenshot-basic or screencapture, or check the selected capture provider.') end
     local count = 0
     for _, task in pairs(captures) do
         count = count + 1
@@ -34,7 +39,7 @@ B.register('CaptureScreenshot', 'write', function(resource, player, options)
     SetTimeout(B.config.captureTimeoutMs, function()
         complete(id, B.fail('CAPTURE_TIMEOUT', 'The capture timed out. A started upload may still complete.', 0, task.state ~= 'capture'))
     end)
-    TriggerClientEvent('bckt:capture:start', player, id, { encoding = encoding, quality = quality, maxBytes = B.config.maxCaptureBytes })
+    TriggerClientEvent('bckt:capture:start', player, id, { provider = provider, encoding = encoding, quality = quality, maxBytes = B.config.maxCaptureBytes })
     return Citizen.Await(task.promise)
 end)
 

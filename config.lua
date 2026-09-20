@@ -11,6 +11,7 @@ BcktConfig = {
     readRetries = 2,
     maxUploadBytes = 8 * 1024 * 1024,
     maxCaptureBytes = 8 * 1024 * 1024,
+    captureProvider = 'auto',
     captureTimeoutMs = 120000,
     maxCaptures = 8,
     logIntervalMs = 5000,

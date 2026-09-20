@@ -175,6 +175,34 @@ test('a capture binds the player and verifies the uploaded file', function()
     assert(final.data.url == 'https://cdn.bckt.io/verified?token=private')
     Citizen.Await, responseHandler = await, nil
 end)
+test('capture provider selection and unavailable resources', function()
+    local state, await = GetResourceState, Citizen.Await
+    local states = {}
+    GetResourceState = function(name) return states[name] or 'missing' end
+    assert(exposed.CaptureScreenshotAwait(1, {}).error.code == 'SCREENSHOT_UNAVAILABLE')
+    assert(exposed.CaptureScreenshotAwait(1, { provider = 'unknown' }).error.code == 'INVALID_ARGUMENT')
+    Citizen.Await = function(p) if not p.value then coroutine.yield(p) end; return p.value end
+    local function capture(options, expected)
+        local co = coroutine.create(function() exposed.CaptureScreenshotAwait(1, options) end)
+        local ok, err = coroutine.resume(co); assert(ok, err)
+        local started = clientEvents[#clientEvents]
+        assert(started.name == 'bckt:capture:start' and started.value.provider == expected)
+        source = 1
+        events['bckt:capture:failed'](started.id)
+        ok, err = coroutine.resume(co); assert(ok, err)
+    end
+    states.screencapture = 'started'
+    capture({}, 'screencapture')
+    assert(exposed.CaptureScreenshotAwait(1, { provider = 'screenshot-basic' }).error.code == 'SCREENSHOT_UNAVAILABLE')
+    states['screenshot-basic'] = 'started'
+    capture({}, 'screenshot-basic')
+    capture({ provider = 'screencapture' }, 'screencapture')
+    BcktConfig.captureProvider = 'screencapture'
+    capture({}, 'screencapture')
+    BcktConfig.captureProvider = 'auto'
+    GetResourceState, Citizen.Await = state, await
+end)
+
 test('discarding blocked events requires explicit confirmation', function()
     assert(not exposed.DiscardLogs({ state = 'blocked' }).success)
     assert(not exposed.DiscardLogs({ state = 'pending', confirm = true }).success)

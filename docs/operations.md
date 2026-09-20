@@ -56,7 +56,7 @@ Upload tickets are bearer capabilities. This SDK does not promise they are singl
 
 The screenshot adapter binds each operation to the requesting resource and player, accepts one size declaration, and issues one upload ticket. A unique server-chosen filename allows the server to verify the receipt against the authenticated catalog. No client network event can create a capture operation on its own.
 
-The browser uploads raw bytes. screenshot-basic's own upload export uses multipart, so do not substitute it for this flow. Browser Content-Length is managed automatically. Cloudflare must allow the upload endpoint and preflight OPTIONS through without a browser challenge.
+The browser uploads raw bytes. The capture resources' own upload exports use multipart, so do not substitute it for this flow. Browser Content-Length is managed automatically. Cloudflare must allow the upload endpoint and preflight OPTIONS through without a browser challenge.
 
 ## Local development
 
@@ -68,7 +68,7 @@ npm test
 
 Development dependencies are only used for local parsing and mocked execution. Tests do not contact BCKT and do not require an API key.
 
-On Windows, `npm run pack:resource` creates `dist/bckt-cfx-0.1.1.zip` with a single `bckt` resource directory. It excludes development dependencies, Git state and test tooling. The shipped resource runs Lua and prewritten browser JavaScript without a build step.
+On Windows, `npm run pack:resource` creates `dist/bckt-cfx-0.1.2.zip` with a single `bckt` resource directory. It excludes development dependencies, Git state and test tooling. The shipped resource runs Lua and prewritten browser JavaScript without a build step.
 
 ## Before using a release in production
 
@@ -77,9 +77,9 @@ Run these acceptance checks on a staging game server with a dedicated BCKT key:
 1. Start bckt on FiveM and RedM and verify the ready event and a file listing.
 2. Upload JSON, list its file, switch privacy, retrieve a private link and delete it.
 3. Create a stream, send an event, query it and confirm the payload in the dashboard.
-4. Install screenshot-basic and capture JPG, PNG and WebP. Confirm filename, size, private access and callback behavior.
+4. Test screenshot-basic and screencapture separately, then with both started. Check auto selection and explicit `provider` overrides. Capture JPG, PNG and WebP. Confirm filename, size, private access and callback behavior.
 5. Upload from the phone example with ACE permission, then verify denial without permission.
 6. Disconnect during capture, stop the calling resource, revoke the key, and simulate quota and rate-limit responses.
 7. Restart with a persisted queue and verify uncertain events do not resend automatically.
 
-These live checks cannot be replaced by the mocked tests. RedM screenshot capture remains dependent on screenshot-basic's runtime compatibility.
+These live checks cannot be replaced by the mocked tests. RedM screenshot capture remains dependent on the chosen capture resource's runtime compatibility.

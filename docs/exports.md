@@ -37,7 +37,7 @@ Results have `success`, `status` and `data` on success. Failure results have `er
 
 All entries above also expose `Await` variants. Workspace permissions, quotas and account restrictions still apply.
 
-Upload options: `filename` (required), `folder`, `content_type`, `private` (default false). `CreateUploadUrl` also requires an exact positive `size` in bytes. `UploadFile` requires `data` as a binary Lua string; `UploadJson` requires a serializable table in `data` and sets the content type to JSON.
+Upload options: `filename` (required), `folder`, `content_type`, `private` (default false). `CreateUploadUrl` also requires an exact positive `size` in bytes. `UploadFile` requires `data` as a binary Lua string; it uses the HTTP method and headers returned by the upload ticket. `UploadJson` requires a serializable table in `data` and sets the content type to JSON.
 
 `UploadResourceFile` takes `path` relative to the invoking resource, optional `resource`, and the normal upload options. A different resource must be explicitly allowed in `fileResources`. No absolute paths or parent traversal are accepted. File content is loaded into memory before its size can be checked, so do not use this for large archives or untrusted paths.
 
@@ -79,7 +79,9 @@ Messages are limited to 16000 bytes in the SDK. Events default to at most 64000 
 
 `CaptureScreenshot(playerId, options, callback)` and `CaptureScreenshotAwait(playerId, options)` are server exports. Options are `folder` (default screenshots), `private` (default true), `encoding` (jpg, png or webp; default webp) and `quality` (greater than 0 and at most 1; default 0.85).
 
-Requires screenshot-basic, a connected player and both file scopes. One capture per player can be pending; at most eight globally by default. Capture lifetime defaults to 120 seconds. Success returns `data.file`, `data.url` and `data.expires_at`, verified against the server-side catalog. The server controls the filename and generates a distinct name per capture.
+The `provider` option accepts `auto`, `screenshot-basic` or `screencapture`, and defaults to `BcktConfig.captureProvider` (`auto`). Auto selects a started screenshot-basic first, otherwise screencapture. An explicitly selected resource must be started. Both adapters support JPG, PNG, WebP and quality through `requestScreenshot`. Video and live streaming are not exposed.
+
+Requires one of those capture resources, a connected player and both file scopes. One capture per player can be pending; at most eight globally by default. Capture lifetime defaults to 120 seconds. Success returns `data.file`, `data.url` and `data.expires_at`, verified against the server-side catalog. The server controls the filename and generates a distinct name per capture.
 
 The SDK cannot prove that an image from an untrusted game client is an authentic screenshot. Timeouts and disconnects can leave a successfully uploaded file without a completed callback. No automatic deletion is performed in that case.
 

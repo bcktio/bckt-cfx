@@ -6,12 +6,13 @@ end
 RegisterNetEvent('bckt:capture:start', function(id, options)
     if source ~= 65535 then return end
     captures[id] = true
-    if GetResourceState('screenshot-basic') ~= 'started' then
+    local provider = options.provider or 'screenshot-basic'
+    if (provider ~= 'screenshot-basic' and provider ~= 'screencapture') or GetResourceState(provider) ~= 'started' then
         TriggerServerEvent('bckt:capture:failed', id)
         return
     end
     local ok = pcall(function()
-        exports['screenshot-basic']:requestScreenshot({ encoding = options.encoding, quality = options.quality }, function(data)
+        exports[provider]:requestScreenshot({ encoding = options.encoding, quality = options.quality }, function(data)
             if not captures[id] then return end
             if type(data) ~= 'string' or #data > options.maxBytes * 1.4 + 200 then
                 TriggerServerEvent('bckt:capture:failed', id)

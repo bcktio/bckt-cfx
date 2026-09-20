@@ -12,7 +12,7 @@ The official Lua SDK for BCKT. Upload files, capture screenshots and send struct
 
 No framework required. Your API key stays on the server.
 
-Version 0.1.1 is a beta release. The Lua logic and browser upload bridge have local automated checks. Live FiveM, RedM and screenshot-basic acceptance tests are still required before calling this production-tested.
+Version 0.1.2 is a beta release. The Lua logic and browser upload bridge have local automated checks. Live FiveM, RedM and capture-provider acceptance tests are still required before calling this production-tested.
 
 ## Five lines instead of another HTTP wrapper
 
@@ -66,7 +66,7 @@ See [the phone upload example](examples/phone-upload). The client helper `Upload
 
 ## Screenshots, without writing the plumbing
 
-With `screenshot-basic` installed and started before `bckt`:
+With either [`screenshot-basic`](https://github.com/citizenfx/screenshot-basic) or [`screencapture`](https://github.com/itschip/screencapture) installed and started before `bckt`:
 
 ```lua
 local result = exports['bckt']:CaptureScreenshotAwait(playerId, {
@@ -81,9 +81,9 @@ if result.success then
 end
 ```
 
-The SDK handles capture, authorization, direct upload and a server-side catalog check. Captures require both `files:write` and `files:read`. They default to private. `screenshot-basic` is optional; everything else works without it.
+The SDK handles capture, authorization, direct upload and a server-side catalog check. Captures require both `files:write` and `files:read`. They default to private. Both capture resources are optional; everything else works without them.
 
-This adapter uses `requestScreenshot`, not the multipart upload export. It does not modify screenshot-basic. RedM capture support still depends on the installed screenshot-basic build and must be tested in-game. A screenshot supplied by a player's client is not proof that the client is trustworthy.
+The adapter uses each resource's `requestScreenshot` export and uploads raw bytes through BCKT. `BcktConfig.captureProvider` defaults to `auto`: it uses screenshot-basic when started, otherwise screencapture. Set it to `screencapture` to prefer that resource, or pass `provider = 'screencapture'` per capture. A failed capture is not retried through another provider. This integration supports still images, not video or live streaming. RedM capture support depends on the chosen resource and must be tested in-game. A screenshot supplied by a player's client is not proof that the client is trustworthy.
 
 ## Public when you want it. Private when you need it.
 
